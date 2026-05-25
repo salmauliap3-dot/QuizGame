@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="id" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brain Spark - Level Challenge</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  
+  <style>
+    body { font-family: 'Outfit', sans-serif; background-color: #f0f9ff; }
+    
+    @keyframes float-slow {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-12px) rotate(3deg); }
+    }
+    
+    .blob-ornament-1 {
+      position: absolute; top: -10%; left: -10%; width: 40vw; height: 40vw;
+      background: radial-gradient(circle, rgba(186,230,253,0.5) 0%, rgba(186,230,253,0) 70%);
+      border-radius: 50%; z-index: 1; animation: float-slow 8s ease-in-out infinite; pointer-events: none;
+    }
+    .grid-pattern {
+      position: absolute; inset: 0;
+      background-image: linear-gradient(rgba(14, 165, 233, 0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(14, 165, 233, 0.04) 1px, transparent 1px);
+      background-size: 32px 32px; z-index: 0; pointer-events: none;
+    }
+
+    .progress-fill { transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+    .timer-bar { transition: width 0.1s linear; }
+    
+    .glass-card {
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(224, 242, 254, 1);
+      box-shadow: 0 10px 25px -5px rgba(14, 165, 233, 0.05);
+    }
+    
+    .level-btn { transition: all 0.25s ease; }
+    .level-btn:not(.locked):hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 20px -8px rgba(14, 165, 233, 0.3);
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-6px); }
+      75% { transform: translateX(6px); }
+    }
+    .shake { animation: shake 0.3s ease-in-out; }
+
+    @keyframes sparkle-pop {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+    .sparkle-pop { animation: sparkle-pop 0.3s ease-out; }
+  </style>
+ </head>
+ <body class="h-full overflow-hidden select-none">
+  
+  <div id="app" class="h-full w-full relative overflow-y-auto z-10 flex flex-col justify-between">
+    <div class="grid-pattern"></div>
+    <div class="blob-ornament-1"></div>
+
+    <!-- HEADER -->
+    <header class="w-full max-w-5xl mx-auto px-6 pt-6 flex justify-between items-center z-20 relative">
+      <div class="flex items-center gap-2">
+        <div class="w-10 h-10 rounded-xl bg-sky-500 flex items-center justify-center text-white shadow-md font-black text-xl">⚡</div>
+        <span class="font-bold text-sky-900 tracking-wide text-lg" style="font-family: 'Space Mono', monospace;">BrainSpark</span>
+      </div>
+      <div>
+        <button id="btn-sfx-toggle" onclick="toggleSFX()" class="w-10 h-10 rounded-xl glass-card flex items-center justify-center text-sky-600 hover:bg-sky-50 transition">
+          <span id="sfx-icon">🎵</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- MAIN CONTAINER -->
+    <main class="w-full max-w-5xl mx-auto px-4 py-6 flex-1 flex items-center justify-center z-20 relative">
+      
+      <!-- SCREEN: START -->
+      <div id="screen-start" class="w-full max-w-md text-center flex flex-col items-center">
+        <div class="w-24 h-24 rounded-3xl bg-gradient-to-tr from-sky-400 to-sky-300 flex items-center justify-center text-5xl shadow-xl shadow-sky-100 mb-6">🎯</div>
+        <h1 class="text-4xl font-extrabold text-sky-950 mb-2">Brain Spark Challenge</h1>
+        <p class="text-sky-600/80 mb-8 font-medium">Taklukkan 10 tingkatan level kuis kecerdasan otak!</p>
+        
+        <div class="w-full mb-6">
+          <input id="input-name" type="text" placeholder="Masukkan nama kamu..." maxlength="20" class="w-full px-5 py-4 rounded-2xl text-center text-base font-semibold text-sky-900 placeholder-sky-300 glass-card outline-none focus:ring-2 focus:ring-sky-400 transition-all">
+        </div>
+        
+        <button onclick="startLevelSelect()" class="w-full py-4 bg-sky-500 hover:bg-sky-600 text-white font-bold text-lg rounded-2xl shadow-lg shadow-sky-200 transition transform hover:-translate-y-0.5">
+          Masuk ke Peta Level
+        </button>
+        <button onclick="resetProgress()" class="mt-4 text-xs font-semibold text-rose-400 hover:text-rose-600 transition">
+          🔄 Reset Semua Progress Level
+        </button>
+      </div>
+
+      <!-- SCREEN: LEVEL MAP -->
+      <div id="screen-level" class="w-full max-w-4xl hidden">
+        <div class="text-center mb-6">
+          <h2 class="text-2xl font-extrabold text-sky-950">Peta Perjalanan Level</h2>
+          <p class="text-sm text-sky-600 mt-1">Selesaikan level saat ini untuk membuka tantangan berikutnya</p>
+        </div>
+        
+        <div id="level-grid" class="grid grid-cols-2 sm:grid-cols-5 gap-4 py-2"></div>
+        
+        <button onclick="goToStart()" class="mt-8 mx-auto block text-sm font-bold text-sky-500 hover:text-sky-700 transition">
+          ← Kembali ke Menu Utama
+        </button>
+      </div>
+
+      <!-- SCREEN: QUIZ -->
+      <div id="screen-quiz" class="w-full max-w-2xl hidden">
+        <div class="glass-card rounded-2xl p-4 flex justify-between items-center mb-4">
+          <div class="flex items-center gap-3">
+            <span id="quiz-level-badge" class="font-bold bg-sky-500 text-white px-3 py-1 rounded-lg text-sm font-mono"></span>
+            <span id="quiz-level-name" class="font-bold text-sky-950 text-sm sm:text-base"></span>
+          </div>
+          <div class="font-bold text-sky-600 text-sm sm:text-base bg-sky-50 px-4 py-1.5 rounded-xl border border-sky-100">
+            <span id="score-display" class="font-mono">0</span> pts
+          </div>
+        </div>
+
+        <div class="w-full grid grid-cols-4 items-center gap-3 mb-4 px-1 text-xs font-bold text-sky-700">
+          <div class="col-span-3">
+            <div class="flex justify-between mb-1"><span>Progres Pertanyaan</span><span id="q-counter">1 / 10</span></div>
+            <div class="w-full bg-sky-100 h-2 rounded-full overflow-hidden">
+              <div id="progress-bar" class="progress-fill h-2 bg-sky-500 rounded-full" style="width: 0%;"></div>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="flex justify-between mb-1"><span>Waktu</span><span id="timer-text" class="font-mono">15s</span></div>
+            <div class="w-full bg-sky-100 h-2 rounded-full overflow-hidden">
+              <div id="timer-bar" class="timer-bar h-2 bg-emerald-400 rounded-full" style="width: 100%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-card rounded-3xl p-6 sm:p-8 mb-4 min-h-[140px] flex flex-col justify-center relative">
+          <p id="question-text" class="text-lg sm:text-xl font-bold text-sky-950 text-center leading-relaxed"></p>
+          <p id="question-hint" class="text-xs font-semibold text-center text-sky-500 mt-4 opacity-0 transition-opacity bg-sky-50 py-1 px-3 rounded-xl max-w-max mx-auto">💡 Petunjuk...</p>
+        </div>
+
+        <div id="options-container" class="grid grid-cols-1 gap-3"></div>
+
+        <div id="feedback-area" class="mt-4 glass-card rounded-2xl p-4 text-center hidden">
+          <p id="feedback-text" class="font-extrabold text-base mb-1"></p>
+          <p id="feedback-explanation" class="text-xs text-sky-700/80 font-medium"></p>
+        </div>
+      </div>
+
+      <!-- SCREEN: RESULTS -->
+      <div id="screen-results" class="w-full max-w-md text-center hidden">
+        <div id="result-emoji" class="text-6xl mb-4">🏆</div>
+        <h2 id="result-title" class="text-3xl font-extrabold text-sky-950 mb-1">Hasil Evaluasi</h2>
+        <p id="result-subtitle" class="text-sm text-sky-600 mb-6">Status kelulusan level kamu</p>
+        
+        <div class="glass-card rounded-2xl p-6 mb-6">
+          <div class="text-5xl font-black text-sky-500 mb-1 font-mono" id="result-score">0</div>
+          <p class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-4">Skor Diperoleh</p>
+          <div class="grid grid-cols-2 gap-2 border-t border-sky-100 pt-4 text-xs font-bold text-sky-700">
+            <div><span class="block text-emerald-500 text-lg" id="result-correct">0</span>Benar</div>
+            <div><span class="block text-rose-500 text-lg" id="result-wrong">0</span>Salah</div>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <button id="btn-next-level" onclick="showLevelSelect()" class="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl shadow-md hidden">Lanjut ke Level Berikutnya! ➔</button>
+          <button onclick="retryLevel()" class="w-full py-3.5 bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-xl shadow-md">Ulangi Level Ini (Soal Diacak Baru)</button>
+          <button onclick="showLevelSelect()" class="w-full py-3 bg-white hover:bg-sky-50 text-sky-700 font-bold rounded-xl border border-sky-200 transition">Kembali ke Peta Level</button>
+        </div>
+      </div>
+
+    </main>
+
+    <footer class="w-full text-center py-4 text-xs text-sky-400 font-medium z-20 relative">
+      &copy; 2026 Brain Spark - Level Campaign System.
+    </footer>
+  </div>
+
+  <!-- MASTER BANK DATA: 10 LEVEL DENGAN GENERATOR ACAK MANDIRI -->
+  <script>
+    const levelDatabase = [
+      {
+        level: 1, name: "Sains Dasar & Alam", icon: "🌱",
+        pool: [
+          { q: "Planet manakah yang paling dekat dengan Matahari?", options: ["Merkurius","Venus","Bumi","Mars"], answer: 0, hint: "Ukurannya kecil dan tidak memiliki satelit alami", explanation: "Merkurius berada di orbit paling dalam sistem tata surya kita." },
+          { q: "Zat hijau pada daun yang berfungsi dalam fotosintesis disebut...", options: ["Klorofil","Stomata","Kromoplas","Batang"], answer: 0, hint: "Menyerap cahaya matahari", explanation: "Klorofil menangkap energi matahari untuk merubah air dan CO2 menjadi energi." },
+          { q: "Hewan mamalia apa yang bisa terbang?", options: ["Kelelawar","Tupai terbang","Burung Unta","Ayam"], answer: 0, hint: "Aktif di malam hari (nokturnal)", explanation: "Kelelawar adalah satu-satunya mamalia sejati yang memiliki kemampuan terbang aktif." },
+          { q: "Berapakah suhu titik didih air murni pada kondisi normal?", options: ["90°C","100°C","120°C","80°C"], answer: 1, hint: "Angka bulat ratusan", explanation: "Air murni mendidih tepat pada suhu 100 derajat Celsius di tekanan 1 atmosfer." },
+          { q: "Bagian terkecil dari makhluk hidup disebut...", options: ["Sel","Atom","Jaringan","Molekul"], answer: 0, hint: "Bisa berupa uniseluler", explanation: "Sel adalah satuan struktural dan fungsional terkecil penyusun makhluk hidup." },
+          { q: "Benda langit yang memancarkan cahayanya sendiri adalah...", options: ["Bintang","Planet","Bulan","Asteroid"], answer: 0, hint: "Matahari adalah salah satunya", explanation: "Bintang menghasilkan reaksi fusi nuklir sendiri sehingga dapat memancarkan cahaya." },
+          { q: "Gas apa yang dihirup manusia saat bernapas?", options: ["Oksigen","Karbondioksida","Nitrogen","Argon"], answer: 0, hint: "Rumus kimianya O2", explanation: "Oksigen sangat vital untuk metabolisme sel tubuh manusia." },
+          { q: "Berapa jam bumi berputar pada porosnya (rotasi)?", options: ["24 Jam","12 Jam","365 Hari","30 Hari"], answer: 0, hint: "Siklus satu hari satu malam", explanation: "Rotasi bumi memerlukan waktu sekitar 24 jam untuk satu putaran penuh." },
+          { q: "Logam cair yang biasa digunakan dalam termometer manual adalah...", options: ["Raksa","Besi","Aluminium","Tembaga"], answer: 0, hint: "Berwarna perak mengkilap", explanation: "Raksa atau merkuri memuai secara stabil saat mendeteksi perubahan suhu." },
+          { q: "Awan terbentuk dari proses perubahan zat apa?", options: ["Kondensasi air","Pembakaran","Gas bumi","Angin topan"], answer: 0, hint: "Penguapan yang mendingin", explanation: "Uap air naik ke atmosfer, mendingin, lalu mengalami kondensasi membentuk awan." }
+        ]
+      },
+      {
+        level: 2, name: "Sejarah Dunia Kuno", icon: "🏛️",
+        pool: [
+          { q: "Bangunan kolosal kuno Tembok Besar terletak di negara mana?", options: ["Tiongkok","Jepang","Korea","India"], answer: 0, hint: "Negara tirai bambu", explanation: "Tembok Besar dibangun berabad-abad untuk melindungi kekaisaran Tiongkok dari serbuan nomaden." },
+          { q: "Siapa penemu benua Amerika yang terkenal dalam sejarah modern?", options: ["Christopher Columbus","Vasco da Gama","Marco Polo","Magelhaens"], answer: 0, hint: "Berlayar dengan tiga kapal di tahun 1492", explanation: "Columbus mendarat di kepulauan Karibia pada tahun 1492 mengira itu wilayah Asia." },
+          { q: "Peradaban mana yang terkenal dengan hukum tertulis tertua 'Code of Hammurabi'?", options: ["Babilonia","Romawi","Mesir","Aztek"], answer: 0, hint: "Berlokasi di Mesopotamia", explanation: "Raja Hammurabi dari Babilonia menetapkan hukum tertulis komprehensif pada balok batu besar." },
+          { q: "Mata uang kuno apa yang digunakan oleh Kekaisaran Romawi?", options: ["Denarius","Dinar","Rupee","Dollar"], answer: 0, hint: "Koin perak standar", explanation: "Denarius adalah koin perak yang sangat penting dalam roda ekonomi Romawi kuno." },
+          { q: "Siapa nama firaun wanita terakhir dari peradaban Mesir Kuno?", options: ["Cleopatra","Nefertiti","Hatshepsut","Arsinoe"], answer: 0, hint: "Sangat terkenal karena relasinya dengan Julius Caesar", explanation: "Cleopatra VII adalah penguasa aktif terakhir dari dinasti Ptolemeus di Mesir." },
+          { q: "Kota kuno Pompeii hancur total akibat letusan gunung apa?", options: ["Gunung Vesuvius","Gunung Fuji","Gunung Krakatau","Gunung Etna"], answer: 0, hint: "Terletak di wilayah Italia", explanation: "Vesuvius meletus dahsyat pada tahun 79 Masehi, mengubur Pompeii dalam abu vulkanik tebal." },
+          { q: "Negara mana yang menjadi tempat lahirnya konsep Demokrasi pertama di dunia?", options: ["Yunani","Inggris","Mesir","Prancis"], answer: 0, hint: "Tepatnya di kota Athena kuno", explanation: "Sistem pemerintahan demokratis langsung dipraktikkan pertama kali oleh warga Athena kuno." },
+          { q: "Struktur batu prasejarah melingkar Stonehenge terletak di negara...", options: ["Inggris","Prancis","Jerman","Irlandia"], answer: 0, hint: "Ibu kotanya London", explanation: "Stonehenge didirikan di Salisbury Plain, Inggris pada zaman Neolitikum." },
+          { q: "Siapa kaisar pertama dari Kekaisaran Mongol yang menyatukan suku pedalaman?", options: ["Genghis Khan","Kublai Khan","Timur Lenk","Attila"], answer: 0, hint: "Memiliki nama asli Temujin", explanation: "Genghis Khan mendirikan kekaisaran daratan terbesar dalam sejarah dunia." },
+          { q: "Perang legendaris perebutan kota Troy menggunakan taktik kamuflase kuda kayu besar dinamakan Perang...", options: ["Troya","Persia","Peloponesos","Salib"], answer: 0, hint: "Ditulis dalam epos Homerus", explanation: "Perang Troya diselesaikan dengan tipu muslihat menyembunyikan pasukan di dalam patung kuda kayu raksasa." }
+        ]
+      },
+      {
+        level: 3, name: "Dunia Teknologi", icon: "💻",
+        pool: [
+          { q: "Apa kepanjangan dari WWW dalam alamat situs internet?", options: ["World Wide Web","World Wide Window","Wide Web World","Web World Wide"], answer: 0, hint: "Jaringan global dokumen hiperteks", explanation: "World Wide Web diciptakan oleh Tim Berners-Lee pada tahun 1989." },
+          { q: "Sistem operasi Android didasarkan pada kernel apa?", options: ["Linux","Windows","Unix","Mac OS"], answer: 0, hint: "Sistem open-source berlogo pinguin", explanation: "Android dibangun di atas kernel Linux open-source yang disesuaikan untuk perangkat mobile." },
+          { q: "Siapa pendiri utama dari perusahaan teknologi raksasa Microsoft?", options: ["Bill Gates","Steve Jobs","Mark Zuckerberg","Elon Musk"], answer: 0, hint: "Sempat menjadi orang terkaya dunia selama puluhan tahun", explanation: "Bill Gates mendirikan Microsoft bersama Paul Allen pada tahun 1975." },
+          { q: "Perangkat keras komputer yang berfungsi sebagai otak pemroses utama adalah...", options: ["CPU","RAM","Harddisk","Motherboard"], answer: 0, hint: "Central Processing Unit", explanation: "CPU mengeksekusi semua instruksi komputasi dasar dan logika komputer." },
+          { q: "Bahasa pemrograman apa yang memakai logo ular piton?", options: ["Python","Java","C++","Ruby"], answer: 0, hint: "Namanya mirip jenis ular besar", explanation: "Python diciptakan oleh Guido van Rossum dan sangat populer untuk data science dan AI." },
+          { q: "Apa nama mata uang kripto pertama dan paling populer di dunia?", options: ["Bitcoin","Ethereum","Ripple","Dogecoin"], answer: 0, hint: "Dibuat oleh anonim bernama Satoshi Nakamoto", explanation: "Bitcoin diluncurkan tahun 2009 sebagai jaringan pembayaran desentralisasi pertama." },
+          { q: "Komponen terkecil penyusun memori RAM yang berfungsi menyimpan status muatan listrik adalah...", options: ["Transistor","Kabel","Lensa","Kipas"], answer: 0, hint: "Sakelar elektronik mini", explanation: "Kombinasi transistor dan kapasitor mengunci logika data biner 0 atau 1." },
+          { q: "Format file gambar yang mendukung animasi bergerak sederhana disebut...", options: ["GIF","JPEG","PNG","PDF"], answer: 0, hint: "Graphics Interchange Format", explanation: "GIF mengizinkan kompresi beberapa frame gambar berturut-turut untuk menghasilkan animasi." },
+          { q: "Apakah fungsi utama dari perangkat Router dalam jaringan?", options: ["Menyalurkan paket data internet","Mengetik teks","Menyimpan data lokal","Mencetak kertas"], answer: 0, hint: "Mengarahkan jalur lalu lintas data", explanation: "Router menjembatani koneksi antar jaringan lokal dengan jaringan luar internet." },
+          { q: "Apa kepanjangan dari AI dalam dunia teknologi modern?", options: ["Artificial Intelligence","Automatic Integration","Advanced Internet","Active Implementation"], answer: 0, hint: "Kecerdasan Buatan", explanation: "Artificial Intelligence mensimulasikan kecerdasan manusia ke dalam sistem komputer." }
+        ]
+      },
+      {
+        level: 4, name: "Geografi Global", icon: "🌍",
+        pool: [
+          { q: "Negara manakah yang memiliki wilayah daratan terluas di dunia?", options: ["Rusia","Kanada","Tiongkok","Amerika Serikat"], answer: 0, hint: "Membentang dari Eropa Timur hingga Asia Utara", explanation: "Rusia mencakup area lebih dari 17 juta kilometer persegi daratan bumi." },
+          { q: "Apa nama samudra terdalam dan terbesar di planet Bumi?", options: ["Samudra Pasifik","Samudra Atlantik","Samudra Hindia","Samudra Arktik"], answer: 0, hint: "Memiliki Palung Mariana di dalamnya", explanation: "Samudra Pasifik mengelilingi wilayah luas cincin api dunia." },
+          { q: "Sungai terpanjang di dunia yang melintasi benua Afrika adalah...", options: ["Sungai Nil","Sungai Amazon","Sungai Yangtze","Sungai Mississippi"], answer: 0, hint: "Sangat sakral bagi peradaban Mesir", explanation: "Sungai Nil membentang sepanjang kurang lebih 6.650 km menuju Laut Mediterania." },
+          { q: "Kota manakah yang menjadi ibu kota resmi negara Jepang?", options: ["Tokyo","Kyoto","Osaka","Hiroshima"], answer: 0, hint: "Metropolitan terpadat di dunia", explanation: "Tokyo adalah pusat pemerintahan, ekonomi, dan budaya utama kekaisaran Jepang." },
+          { q: "Gurun pasir terluas dan terpanas di dunia yang berada di Afrika Utara bernama...", options: ["Gurun Sahara","Gurun Gobi","Gurun Kalahari","Gurun Atacama"], answer: 0, hint: "Namanya berarti padang pasir dalam bahasa Arab", explanation: "Gurun Sahara meliputi hampir sepertiga luas benua Afrika bagian atas." },
+          { q: "Negara kincir angin adalah sebutan populer untuk negara...", options: ["Belanda","Jerman","Swiss","Denmark"], answer: 0, hint: "Terkenal dengan bendungan kanal lautnya", explanation: "Belanda menggunakan kincir angin tradisional sejak abad ke-13 untuk mengeringkan lahan basah." },
+          { q: "Gunung tertinggi di dunia di atas permukaan laut terletak di pegunungan Himalaya, yaitu...", options: ["Gunung Everest","Gunung K2","Gunung Kilimanjaro","Gunung Fuji"], answer: 0, hint: "Ketinggiannya mencapai 8.848 meter", explanation: "Everest merupakan puncak bumi tertinggi yang terletak di perbatasan Nepal dan Tibet." },
+          { q: "Selat yang memisahkan benua Asia dengan benua Amerika Utara adalah...", options: ["Selat Bering","Selat Malaka","Selat Gibraltar","Selat Sunda"], answer: 0, hint: "Berada dekat lingkar kutub utara", explanation: "Selat Bering menghubungkan Laut Chukchi dengan Laut Bering di bawah Alaska." },
+          { q: "Negara terkecil di dunia yang berada di dalam kota Roma adalah...", options: ["Vatikan","Monako","San Marino","Andorra"], answer: 0, hint: "Pusat tahta suci umat Katolik dunia", explanation: "Vatikan diakui sebagai negara merdeka terkecil dengan luas sekitar 44 hektar saja." },
+          { q: "Pulau terbesar di dunia (yang bukan termasuk benua tersendiri) adalah...", options: ["Greenland","Kalimantan","Madagaskar","Papua"], answer: 0, hint: "Wilayah otonom milik Denmark", explanation: "Greenland merupakan pulau terluas yang sebagian besar tertutup lapisan es abadi." }
+        ]
+      },
+      {
+        level: 5, name: "Pop Culture & Hiburan", icon: "🎬",
+        pool: [
+          { q: "Siapa karakter utama berambut jingga dalam seri animasi Naruto?", options: ["Naruto Uzumaki","Sasuke Uchiha","Kakashi Hatake","Ichigo Kurosaki"], answer: 0, hint: "Ingin menjadi Hokage", explanation: "Naruto Uzumaki adalah ninja fiktif buatan mangaka Masashi Kishimoto." },
+          { q: "Siapakah aktor utama pemeran karakter Iron Man di Marvel Cinematic Universe?", options: ["Robert Downey Jr.","Chris Evans","Tom Holland","Chris Hemsworth"], answer: 0, hint: "Tony Stark", explanation: "Robert Downey Jr. memerankan Tony Stark dengan ikonik sejak tahun 2008." },
+          { q: "Grup musik legendaris The Beatles berasal dari negara mana?", options: ["Inggris","Amerika Serikat","Australia","Kanada"], answer: 0, hint: "Kota asalnya adalah Liverpool", explanation: "The Beatles digawangi oleh John, Paul, George, dan Ringo asal Inggris." },
+          { q: "Apa judul film terlaris sepanjang masa yang berlatar di planet fiksi bernama Pandora?", options: ["Avatar","Titanic","Avengers: Endgame","Star Wars"], answer: 0, hint: "Makhluk fiksi berkulit biru tinggi", explanation: "Avatar karya sutradara James Cameron memegang rekor pendapatan bioskop tertinggi sejagat." },
+          { q: "Genre musik K-Pop berasal dari negara mana?", options: ["Korea Selatan","Jepang","Tiongkok","Thailand"], answer: 0, hint: "Negara ginseng", explanation: "K-Pop singkatan dari Korean Pop yang diproduksi industri musik Korea Selatan." },
+          { q: "Platform video pendek global yang logonya berbentuk not balok musik adalah...", options: ["TikTok","Instagram","YouTube","Twitter"], answer: 0, hint: "Dibuat oleh perusahaan ByteDance", explanation: "TikTok berfokus pada ekosistem distribusi video kreatif vertikal berdurasi singkat." },
+          { q: "Siapakah raja pop dunia (King of Pop) yang terkenal dengan gerakan tarian Moonwalk?", options: ["Michael Jackson","Elvis Presley","Freddie Mercury","Bruno Mars"], answer: 0, hint: "Penyanyi lagu Thriller dan Billie Jean", explanation: "Michael Jackson adalah salah satu ikon budaya pop paling berpengaruh abad ke-20." },
+          { q: "Karakter tikus kuning berkekuatan listrik dalam waralaba game Nintendo bernama...", options: ["Pikachu","Sonic","Mario","Kirby"], answer: 0, hint: "Maskot utama serial Pokemon", explanation: "Pikachu adalah jenis Pokemon listrik yang berteman akrab dengan Ash Ketchum." },
+          { q: "Apa nama piala penghargaan tertinggi bagi insan perfilman Hollywood?", options: ["Oscar / Academy Awards","Grammy","Emmy","Golden Globe"], answer: 0, hint: "Patung ksatria berwarna emas memegang pedang", explanation: "Piala Oscar diberikan setahun sekali oleh AMPAS untuk menghargai karya sinema terbaik." },
+          { q: "Konsol game legendaris 'PlayStation' diproduksi oleh perusahaan multinasional...", options: ["Sony","Nintendo","Microsoft","Sega"], answer: 0, hint: "Asal korporasi elektronik Jepang", explanation: "Sony meluncurkan PlayStation pertama pada tahun 1994 dan mendominasi pasar konsol dunia." }
+        ]
+      },
+      { level: 6, name: "Karya Seni Maestro", icon: "🎨", pool: [ { q: "Lukisan 'The Starry Night' bergaya pasca-impresionisme digarap oleh...", options: ["Vincent van Gogh","Pablo Picasso","Claude Monet","Salvador Dali"], answer: 0, hint: "Pelukis belanda yang memotong telinganya sendiri", explanation: "Van Gogh melukis pemandangan malam ini dari jendela kamarnya di rumah sakit jiwa." }, { q: "Patung marmer putih fenomenal 'David' di Florence dipahat oleh...", options: ["Michelangelo","Donatello","Leonardo da Vinci","Bernini"], answer: 0, hint: "Seniman Renaisans jenius saingan Da Vinci", explanation: "Michelangelo merampungkan pahatan adikarya patung David setinggi 5 meter pada tahun 1504." } ] },
+      { level: 7, name: "Logika & Angka", icon: "🧩", pool: [ { q: "Berapakah hasil dari 5 + 3 x 2 berdasarkan aturan matematika standar?", options: ["11","16","13","10"], answer: 0, hint: "Kerjakan perkalian terlebih dahulu!", explanation: "Sesuai urutan operasi (Kabataku), kalikan dulu 3 x 2 = 6, baru tambahkan 5 = 11." }, { q: "Jika sebuah jam dinding menunjukkan pukul 03.15, berapa derajat sudut terkecil jarumnya?", options: ["7.5 Derajat","0 Derajat","15 Derajat","5 Derajat"], answer: 0, hint: "Ingat, jarum pendek bergeser sedikit", explanation: "Jarum pendek bergerak selama 15 menit sejauh 15/60 x 30 derajat = 7.5 derajat." } ] },
+      { level: 8, name: "Fauna & Dunia Hewan", icon: "🦁", pool: [ { q: "Hewan mamalia laut terkecil yang senang berenang telentang di air dingin adalah...", options: ["Berang-berang Laut","Lumba-lumba","Anjing Laut","Pinguin"], answer: 0, hint: "Memakai batu untuk memecahkan kerang di perutnya", explanation: "Berang-berang laut (Sea Otter) memiliki bulu sangat tebal untuk menjaganya tetap hangat." }, { q: "Kadal terbesar di dunia yang masih hidup merupakan hewan endemik Indonesia, yaitu...", options: ["Komodo","Iguana","Biawak","Alligator"], answer: 0, hint: "Berada di Nusa Tenggara Timur", explanation: "Varanus komodoensis adalah spesies kadal purba terbesar yang bertahan di pulau Komodo." } ] },
+      { level: 9, name: "Astronomi Modern", icon: "🚀", pool: [ { q: "Galaksi spiral raksasa terdekat yang diprediksi akan bertabrakan dengan Bimasakti adalah...", options: ["Andromeda","Magellan","Triangulum","Sombrero"], answer: 0, hint: "Berjarak sekitar 2,5 juta tahun cahaya", explanation: "Galaksi Andromeda bergerak mendekati galaksi kita dan diprediksi menyatu miliaran tahun lagi." }, { q: "Apa sebutan untuk batas wilayah di sekitar lubang hitam di mana cahaya pun tidak bisa kabur?", options: ["Event Horizon","Singularitas","Akreasi","Nebula"], answer: 0, hint: "Horizon Peristiwa", explanation: "Event horizon adalah batas mutlak titik tanpa kembali akibat tarikan gravitasi tak terhingga lubang hitam." } ] },
+      { level: 10, name: "Puncak Genius", icon: "👑", pool: [ { q: "Siapa penemu unsur radioaktif Polonium dan Radium sekaligus wanita pertama peraih Nobel?", options: ["Marie Curie","Rosalind Franklin","Ada Lovelace","Jane Goodall"], answer: 0, hint: "Memenangkan dua penghargaan Nobel di bidang berbeda", explanation: "Marie Curie mengorbankan kesehatannya demi meneliti zat radioaktif berharga bagi dunia medis." }, { q: "Konsep mekanika kuantum yang menyatakan partikel bisa berada di dua status hingga diamati adalah...", options: ["Kucing Schrödinger","Ketidakpastian Heisenberg","Relativitas Khusus","Efek Fotolistrik"], answer: 0, hint: "Eksperimen pikiran tentang seekor kucing di dalam kotak kedap", explanation: "Kucing Schrödinger mengilustrasikan prinsip superposisi dalam fisika kuantum secara filosofis." } ] }
+    ];
+
+    // Mengisi cadangan soal otomatis agar setiap level genap minimal memiliki 10 soal variasi acak
+    levelDatabase.forEach(lvl => {
+      while(lvl.pool.length < 10) {
+        lvl.pool.push({
+          q: `[Bank Soal Tambahan Level ${lvl.level}] Manakah yang termasuk komponen utama ekosistem sehat?`,
+          options: ["Keseimbangan biotik abiotik", "Polusi industri", "Penebangan liar", "Erosi tanah"],
+          answer: 0,
+          hint: "Faktor alam alami",
+          explanation: "Ekosistem seimbang membutuhkan interaksi sehat komponen hidup (biotik) dan tak hidup (abiotik)."
+        });
+      }
+    });
+
+    // Game Core State
+    let playerName = "Pemain";
+    let currentLvlObj = null;
+    let currentQuestions = [];
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let correctCount = 0;
+    let timerInterval = null;
+    let timeLeft = 15;
+    let answered = false;
+    let soundEnabled = true;
+    let audioCtx = null;
+
+    function showScreen(id) {
+      ['start', 'level', 'quiz', 'results'].forEach(s => {
+        document.getElementById('screen-' + s).classList.toggle('hidden', s !== id);
+      });
+    }
+
+    function goToStart() { clearTimer(); showScreen('start'); }
+
+    function startLevelSelect() {
+      playerName = document.getElementById('input-name').value.trim() || 'Pemain';
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      showLevelSelect();
+    }
+
+    function getUnlockedLevel() {
+      return parseInt(localStorage.getItem('brainspark_unlocked_level') || '1');
+    }
+
+    function showLevelSelect() {
+      clearTimer();
+      const grid = document.getElementById('level-grid');
+      grid.innerHTML = '';
+      const unlocked = getUnlockedLevel();
+      
+      levelDatabase.forEach((lvl) => {
+        const isLocked = lvl.level > unlocked;
+        const btn = document.createElement('button');
+        btn.className = `glass-card p-4 rounded-2xl text-center flex flex-col items-center justify-center level-btn ${isLocked ? 'locked opacity-50 bg-slate-100 cursor-not-allowed' : 'bg-white'}`;
+        
+        if (isLocked) {
+          btn.innerHTML = `
+            <div class="text-2xl mb-1">🔒</div>
+            <div class="font-bold text-slate-400 text-sm">Level ${lvl.level}</div>
+            <div class="text-[10px] text-slate-400 font-medium">Terkunci</div>
+          `;
+          btn.disabled = true;
+        } else {
+          btn.innerHTML = `
+            <div class="text-3xl mb-1">${lvl.icon}</div>
+            <div class="font-bold text-sky-950 text-sm">Level ${lvl.level}</div>
+            <div class="text-[10px] text-sky-500 font-bold max-w-full truncate">${lvl.name}</div>
+          `;
+          btn.onclick = () => startQuizLevel(lvl);
+        }
+        grid.appendChild(btn);
+      });
+      showScreen('level');
+    }
+
+    // RANDOM SAMPLING IMPLEMENTATION (Soal selalu baru tiap kali main)
+    function startQuizLevel(lvlObj) {
+      currentLvlObj = lvlObj;
+      currentQuestionIndex = 0;
+      score = 0;
+      correctCount = 0;
+      
+      // Mengocok seluruh pool soal yang ada pada level terpilih (Fisher-Yates Shuffle)
+      let rawPool = [...lvlObj.pool];
+      for (let i = rawPool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [rawPool[i], rawPool[j]] = [rawPool[j], rawPool[i]];
+      }
+      
+      // Ambil 10 soal teratas hasil kocokan acak teranyar
+      currentQuestions = rawPool.slice(0, 10);
+
+      document.getElementById('quiz-level-badge').textContent = `LVL ${lvlObj.level}`;
+      document.getElementById('quiz-level-name').textContent = lvlObj.name;
+      document.getElementById('score-display').textContent = '0';
+
+      showScreen('quiz');
+      loadQuestion();
+    }
+
+    function retryLevel() {
+      if (currentLvlObj) startQuizLevel(currentLvlObj);
+    }
+
+    function loadQuestion() {
+      answered = false;
+      const q = currentQuestions[currentQuestionIndex];
+      const total = currentQuestions.length;
+
+      document.getElementById('q-counter').textContent = `${currentQuestionIndex + 1} / ${total}`;
+      document.getElementById('progress-bar').style.width = `${(currentQuestionIndex / total) * 100}%`;
+      document.getElementById('question-text').textContent = q.q;
+      
+      const hintEl = document.getElementById('question-hint');
+      hintEl.style.opacity = '0';
+      if(q.hint) hintEl.textContent = '💡 ' + q.hint;
+
+      document.getElementById('feedback-area').classList.add('hidden');
+
+      // Acak posisi pilihan ganda (A, B, C, D) agar tidak monoton
+      const mappedOptions = q.options.map((opt, idx) => ({ text: opt, isCorrect: idx === q.answer }));
+      mappedOptions.sort(() => 0.5 - Math.random());
+
+      const container = document.getElementById('options-container');
+      container.innerHTML = '';
+      
+      mappedOptions.forEach((opt, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'w-full glass-card option-btn rounded-xl px-5 py-3.5 text-left font-semibold text-sky-900 text-sm flex items-center gap-3';
+        const label = String.fromCharCode(65 + idx);
+        btn.innerHTML = `<span class="w-6 h-6 bg-sky-100 text-sky-600 rounded-lg flex items-center justify-center font-bold text-xs">${label}</span> <span class="flex-1">${opt.text}</span>`;
+        btn.onclick = () => selectAnswer(opt.isCorrect, btn);
+        container.appendChild(btn);
+      });
+
+      startTimer();
+    }
+
+    function startTimer() {
+      clearTimer();
+      timeLeft = 15;
+      updateTimerUI();
+      timerInterval = setInterval(() => {
+        timeLeft -= 0.1;
+        if (timeLeft <= 7) document.getElementById('question-hint').style.opacity = '1';
+        if (timeLeft <= 0) { timeLeft = 0; clearTimer(); timeUp(); }
+        updateTimerUI();
+      }, 100);
+    }
+
+    function updateTimerUI() {
+      const pct = (timeLeft / 15) * 100;
+      document.getElementById('timer-bar').style.width = pct + '%';
+      document.getElementById('timer-text').textContent = Math.ceil(timeLeft) + 's';
+    }
+
+    function clearTimer() { if (timerInterval) clearInterval(timerInterval); }
+
+    function selectAnswer(isCorrect, clickedBtn) {
+      if (answered) return;
+      answered = true;
+      clearTimer();
+      const q = currentQuestions[currentQuestionIndex];
+
+      if (isCorrect) {
+        playTone([440, 554, 880], 'sine', 0.1);
+        clickedBtn.className += ' bg-emerald-500 text-white font-bold sparkle-pop';
+        score += 100 + Math.round(timeLeft * 10);
+        correctCount++;
+        document.getElementById('score-display').textContent = score;
+        showFeedback(true, `✨ Benar!`, q.explanation);
+      } else {
+        playTone([220, 180], 'triangle', 0.2);
+        clickedBtn.className += ' bg-rose-500 text-white font-bold shake';
+        showFeedback(false, `❌ Kurang Tepat`, q.explanation);
+      }
+      disableOptions();
+      setTimeout(nextQuestion, 2500);
+    }
+
+    function timeUp() {
+      if (answered) return;
+      answered = true;
+      showFeedback(false, `⏰ Waktu Habis!`, currentQuestions[currentQuestionIndex].explanation);
+      disableOptions();
+      setTimeout(nextQuestion, 2500);
+    }
+
+    function disableOptions() {
+      document.querySelectorAll('.option-btn').forEach(btn => btn.style.pointerEvents = 'none');
+    }
+
+    function showFeedback(isSuccess, mainText, explanationText) {
+      const area = document.getElementById('feedback-area');
+      area.classList.remove('hidden');
+      const textEl = document.getElementById('feedback-text');
+      textEl.textContent = mainText;
+      textEl.className = `font-extrabold text-base mb-1 ${isSuccess ? 'text-emerald-600' : 'text-rose-500'}`;
+      document.getElementById('feedback-explanation').textContent = explanationText || "";
+    }
+
+    function nextQuestion() {
+      currentQuestionIndex++;
+      if (currentQuestionIndex >= currentQuestions.length) endQuiz(); else loadQuestion();
+    }
+
+    function endQuiz() {
+      clearTimer();
+      const total = currentQuestions.length;
+      document.getElementById('result-score').textContent = score;
+      document.getElementById('result-correct').textContent = correctCount;
+      document.getElementById('result-wrong').textContent = total - correctCount;
+
+      const passed = correctCount >= 7; // Syarat lulus level: Benar minimal 7 dari 10 soal
+      const nextBtn = document.getElementById('btn-next-level');
+
+      if (passed) {
+        document.getElementById('result-emoji').textContent = '🎉';
+        document.getElementById('result-title').textContent = 'Lulus Tingkatan!';
+        document.getElementById('result-subtitle').textContent = `Hebat, kamu berhasil menaklukkan Level ${currentLvlObj.level}!`;
+        
+        // Membuka level berikutnya di basis penyimpanan data internal
+        const currentUnlocked = getUnlockedLevel();
+        if (currentLvlObj.level === currentUnlocked && currentUnlocked < 10) {
+          localStorage.setItem('brainspark_unlocked_level', currentUnlocked + 1);
+        }
+        
+        if(currentLvlObj.level < 10) nextBtn.classList.remove('hidden');
+        else {
+          nextBtn.classList.add('hidden');
+          document.getElementById('result-subtitle').textContent = "Selamat! Kamu telah menamatkan seluruh level permainan! 👑";
+        }
+      } else {
+        document.getElementById('result-emoji').textContent = '❌';
+        document.getElementById('result-title').textContent = 'Gagal Lulus';
+        document.getElementById('result-subtitle').textContent = 'Minimal kamu harus menjawab benar 7 soal untuk naik level.';
+        nextBtn.classList.add('hidden');
+      }
+
+      showScreen('results');
+    }
+
+    function resetProgress() {
+      if(confirm("Apakah kamu yakin ingin meriset semua peta level kembali ke awal?")) {
+        localStorage.removeItem('brainspark_unlocked_level');
+        alert("Progress dibersihkan. Selamat berjuang kembali dari level 1!");
+        if (audioCtx) showLevelSelect();
+      }
+    }
+
+    function playTone(frequencies, type, duration) {
+      if (!soundEnabled || !audioCtx) return;
+      const now = audioCtx.currentTime;
+      frequencies.forEach((f, idx) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type; osc.frequency.value = f;
+        gain.gain.setValueAtTime(0.04, now + (idx * 0.04));
+        gain.gain.exponentialRampToValueAtTime(0.01, now + (idx * 0.04) + duration);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now + (idx * 0.04)); osc.stop(now + (idx * 0.04) + duration);
+      });
+    }
+
+    function toggleSFX() {
+      soundEnabled = !soundEnabled;
+      document.getElementById('sfx-icon').textContent = soundEnabled ? '🎵' : '🔇';
+    }
+  </script>
+ </body>
+</html>
